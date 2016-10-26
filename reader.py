@@ -35,27 +35,27 @@ def preprocess_labels(labels):
 			value_list = []
 			label_str_file = open('training_set/labels/' + filename)
 			label_str = label_str_file.read()
-			for i in len(label_data):
-				if label_str[i] == '\n':
+			for i in range(len(label_str)):
+				if label_str[i] not in labels:
 					continue
 				value_list.append(labels.index(label_str[i]))
-    		value_file = open(filename.replace(".txt", ".dat"), "wb"),
-    		value_array = bytearray(value_list)
+			value_file = open('training_set/labels/' + filename.replace(".txt", ".dat"), "wb")
+			value_array = bytearray(value_list)
 			value_file.write(value_array)
 			value_file.close()
 
-			label_len = len(label_data) - 1
+			label_len = len(value_list)
 			shape_list = [1, label_len]
-			shape_file = open(filename.replace(".txt", ".sha"), "wb"),
+			shape_file = open('training_set/labels/' + filename.replace(".txt", ".sha"), "wb")
 			shape_array = bytearray(shape_list)
 			shape_file.write(shape_array)
 			shape_file.close()
 
 			index_list = []
-			for i in range(label_len):
+			for i in range(len(value_list)):
 				index_list.append(0)
 				index_list.append(i)
-			index_file = open(filename.replace(".txt", ".ind"), "wb"),
+			index_file = open('training_set/labels/' + filename.replace(".txt", ".ind"), "wb")
 			index_array = bytearray(index_list)
 			index_file.write(index_array)
 			index_file.close()
@@ -97,10 +97,15 @@ def create_inputs(input_channel, labels, dilations):
 	image_tensor = tf.image.decode_png(image_content, channels=input_channel)
 
 	label_value_reader = tf.WholeFileReader()
-	_, label_value_tensor = label_value_reader.read(label_value_name_queue)
+	_, label_value_content = label_value_reader.read(label_value_name_queue)
+	label_value_tensor = tf.decode_raw(label_value_content, tf.uint8)
+
 	label_shape_reader = tf.WholeFileReader()
-	_, label_shape_tensor = label_shape_reader.read(label_shape_name_queue)
+	_, label_shape_content = label_shape_reader.read(label_shape_name_queue)
+	label_shape_tensor = tf.decode_raw(label_shape_content, tf.uint8)
+
 	label_index_reader = tf.WholeFileReader()
-	_, label_index_tensor = label_index_reader.read(label_index_name_queue)
+	_, label_index_content = label_index_reader.read(label_index_name_queue)
+	label_index_tensor = tf.decode_raw(label_index_content, tf.uint8)
 
 	return image_tensor, label_value_tensor, label_shape_tensor, label_index_tensor

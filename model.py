@@ -24,18 +24,18 @@ class RecogModel(object):
 		self.network_type = network_type
 		self.ctc_params = ctc_params
 		self.seq2seq_params = seq2seq_params
-		self.variables = self._create_variables()
 		if self.network_type == 'ctc':
 			self.ctc_params['cnn']['channels'].insert(0, self.input_channel)
 			self.ctc_params['full']['units'].insert(0, self.ctc_params['rnn']['units'][-1])
 			self.ctc_params['full']['units'].append(self.klass + 1)
+		self.variables = self._create_variables()
 
 	def _create_variables(self):
 		var = dict()
 
-		if network_type == 'ctc':
-			# cnn part
+		if self.network_type == 'ctc':
 			var['ctc'] = dict()
+			# cnn part
 			var['ctc']['cnn'] = dict()
 			var['ctc']['cnn']['filters'] = list()
 			for i, dilation in enumerate(self.ctc_params['cnn']['dilations']):
@@ -50,16 +50,15 @@ class RecogModel(object):
 					continue
 				var['ctc']['cnn']['biases'].append(create_bias_variable('bias', [channel]))
 			# fully connected layer part
-			var['ctc'] = dict()
 			var['ctc']['full'] = dict()
 			var['ctc']['full']['weight'] = list()
 			var['ctc']['full']['biases'] = list()
 			for i, unit_num in enumerate(self.ctc_params['full']['units']):
 				if i == 0:
 					continue
-				var['ctc']['full']['weights'].append(create_variable('weight',
-													[self.ctc_params['full'][i - 1],
-													 self.ctc_params['full'][i]]))
+				var['ctc']['full']['weight'].append(create_variable('weight',
+													[self.ctc_params['full']['units'][i - 1],
+													 self.ctc_params['full']['units'][i]]))
 				var['ctc']['full']['biases'].append(create_bias_variable('bias', [unit_num]))
 		return var
 
@@ -96,7 +95,7 @@ class RecogModel(object):
 
 	def _create_network(self, input_data):
 		current_layer = input_data
-		if network_type == 'ctc':
+		if self.network_type == 'ctc':
 			# cnn part
 			for layer_idx, dilation in enumerate(self.ctc_params['cnn']['dilations']):
 				conv = tf.nn.atrous_conv2d(value=current_layer,
@@ -106,19 +105,21 @@ class RecogModel(object):
 				with_bias = tf.nn.bias_add(conv, self.variables['ctc']['cnn']['biases'][layer_idx])
 				current_layer = tf.nn.relu(with_bias)
 			# rnn part
-			shape = current_layer.get_shape().as_list
+			shape = current_layer.get_shape()
+			shape = tf.shape(current_layer)
 			length = shape[2]
-			cells_fw = []
-			cells_bw = []
+			cells_fw_list = []
+			cells_bw_list = []
 			for layer_idx, unit_num in enumerate(self.ctc_params['rnn']['units']):
-				cells_fw.append(tf.nn.rnn_cell.GRUCell(unit_num))
-				cells_bw.append(tf.nn.rnn_cell.GRUCell(unit_num))
+				cells_fw_list.append(tf.nn.rnn_cell.GRUCell(unit_num))
+				cells_bw_list.append(tf.nn.rnn_cell.GRUCell(unit_num))
 			cells_fw = tf.nn.rnn_cell.MultiRNNCell(cells_fw_list)
 			cells_bw = tf.nn.rnn_cell.MultiRNNCell(cells_bw_list)
-			current_layer = tf.reshape(current_layer, [self.batch_size, length, -1])
+			current_layer = tf.reshape(current_layer, [self.batch_size, length, self.ctc_params['cnn']['channels'][-1]])
 			tf.nn.bidirectional_dynamic_rnn(cell_fw=cells_fw,
 											cell_bw=cells_bw,
-											inputs=current_layer)
+											inputs=current_layer,
+											dtype=tf.float32)
 			# fully connected part
 			current_layer = tf.reshape(current_layer, [self.batch_size * length, -1])
 			for layer_idx, unit_num in enumerate(self.ctc_params['full']['units']):

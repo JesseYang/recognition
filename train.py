@@ -7,7 +7,7 @@ import time
 import tensorflow as tf
 
 from reader import create_inputs
-from model import FragModel
+from model import RecogModel
 
 
 BATCH_SIZE = 1
@@ -16,7 +16,7 @@ LEARNING_RATE = 0.0005
 INPUT_CHANNEL = 1
 LOGDIR_ROOT = './logdir'
 STARTED_DATESTRING = "{0:%Y-%m-%dT%H-%M-%S}".format(datetime.now())
-FRAG_PARAMS = './recog_params.json'
+RECOG_PARAMS = './recog_params.json'
 L2_REGULARIZATION_STRENGTH = 0
 
 def get_arguments():
@@ -29,7 +29,7 @@ def get_arguments():
 						help='Learning rate for training.')
 	parser.add_argument('--input_channel', type=str, default=INPUT_CHANNEL,
 						help='Number of input channel.')
-	parser.add_argument('--recog_params', type=str, default=FRAG_PARAMS,
+	parser.add_argument('--recog_params', type=str, default=RECOG_PARAMS,
 						help='JSON file with the network parameters.')
 	parser.add_argument('--l2_regularization_strength', type=float,
 						default=L2_REGULARIZATION_STRENGTH,
@@ -76,17 +76,17 @@ def main():
 	with open(args.recog_params, 'r') as f:
 		recog_params = json.load(f)
 
-	if check_params(recog_params) == False:
-		return
+	# if check_params(recog_params) == False:
+	# 	return
 
 	logdir_root = args.logdir_root
 	logdir = get_default_logdir(logdir_root)
 
 	image, label_value, label_shape, label_index = create_inputs(input_channel=args.input_channel,
 																 labels=recog_params['labels'],
-																 dilations=recog_params['cnn']['dilations'])
+																 dilations=recog_params['ctc_params']['cnn']['dilations'])
 
-	queue = tf.FIFOQueue(256, ['uint8', 'uint'])
+	queue = tf.FIFOQueue(256, ['uint8', 'uint8', 'uint8', 'uint8'])
 	enqueue = queue.enqueue([image, label_value, label_shape, label_index])
 	input_data = queue.dequeue()
 
