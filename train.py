@@ -82,12 +82,12 @@ def main():
 	logdir_root = args.logdir_root
 	logdir = get_default_logdir(logdir_root)
 
-	image, label = create_inputs(input_channel=args.input_channel,
-								 labels=recog_params['labels'],
-								 dilations=recog_params['cnn']['dilations'])
+	image, label_value, label_shape, label_index = create_inputs(input_channel=args.input_channel,
+																 labels=recog_params['labels'],
+																 dilations=recog_params['cnn']['dilations'])
 
 	queue = tf.FIFOQueue(256, ['uint8', 'uint'])
-	enqueue = queue.enqueue([image, label])
+	enqueue = queue.enqueue([image, label_value, label_shape, label_index])
 	input_data = queue.dequeue()
 
 	net = RecogModel(input_channel=args.input_channel,

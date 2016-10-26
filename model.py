@@ -67,19 +67,25 @@ class RecogModel(object):
 		if generate == True:
 			image = input_data
 			image = tf.cast(tf.expand_dims(tf.expand_dims(image, 2), 0), tf.float32)
-			label = None
+			label_value = None
+			label_shape = None
+			label_index = None
 		else:
 			image = input_data[0]
 			image = tf.cast(tf.expand_dims(image, 0), tf.float32)
-			label = input_data[1]
-			label = tf.reshape(label, [-1])
-			# value for the elements in label before preprocess can be:
-			#	i (i >= 0): the i-th class (0-based)
-			label = tf.cast(label, tf.int32)
+			label_value = input_data[1]
+			label_value = tf.reshape(label_value, [-1])
+			label_value = tf.cast(label_value, tf.int32)
+			label_shape = input_data[2]
+			label_shape = tf.reshape(label_shape, [-1])
+			label_shape = tf.cast(label_shape, tf.int64)
+			label_index = input_data[3]
+			label_index = tf.reshape(label_index, [-1, 2])
+			label_index = tf.cast(label_index, tf.int64)
 		# tf.nn.conv2d(padding='SAME') always pads 0 to the input tensor,
 		# thus make the value of the white pixels in the image 0
 		image = 1.0 - image / 255.0
-		return image, label
+		return image, label_value, label_shape, label_index
 
 	def _non_linear(subnet, input_tensor):
 		if self.ctc_params[subnet]['non-linear'] == 'relu':
@@ -127,13 +133,13 @@ class RecogModel(object):
 		return current_layer
 
 	def loss(self, input_data):
-		image, label = self._preprocess(input_data)
+		image, label_value, label_shape, label_index = self._preprocess(input_data)
 
 		output = self._create_network(image)
 
 		output = tf.reshape(output, [self.batch_size, -1, self.klass + 1])
 
-		# todo: check that output should be 3D; label should be sparse one hot encoded
+		sparse_label = tf.SparseTensor(label_index, label_value, label_shape)
 		loss = tf.nn.ctc_loss(inputs=output,
 							  labels=label,
 							  time_major=False)

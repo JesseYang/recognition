@@ -32,26 +32,46 @@ def preprocess_images(height, width_pad):
 def preprocess_labels(labels):
 	for (dirpath, dirnames, filenames) in os.walk('training_set/labels'):
 		for filename in filenames:
-			label_list = []
+			value_list = []
 			label_str_file = open('training_set/labels/' + filename)
 			label_str = label_str_file.read()
 			for i in len(label_data):
 				if label_str[i] == '\n':
 					continue
-				label_list.append(labels.index(label_str[i]))
-    		label_file = open (filename.replace(".txt", ".dat"), "wb"),
-    		byte_array = bytearray(label_list),
-			label_file.write(byte_array)
-			label_file.close()
+				value_list.append(labels.index(label_str[i]))
+    		value_file = open(filename.replace(".txt", ".dat"), "wb"),
+    		value_array = bytearray(value_list)
+			value_file.write(value_array)
+			value_file.close()
+
+			label_len = len(label_data) - 1
+			shape_list = [1, label_len]
+			shape_file = open(filename.replace(".txt", ".sha"), "wb"),
+			shape_array = bytearray(shape_list)
+			shape_file.write(shape_array)
+			shape_file.close()
+
+			index_list = []
+			for i in range(label_len):
+				index_list.append(0)
+				index_list.append(i)
+			index_file = open(filename.replace(".txt", ".ind"), "wb"),
+			index_array = bytearray(index_list)
+			index_file.write(index_array)
+			index_file.close()
 
 def image_label_list():
 	image_name_list = [ ]
-	label_name_list = [ ]
+	label_value_name_list = [ ]
+	label_shape_name_list = [ ]
+	label_index_name_list = [ ]
 	for (dirpath, dirnames, filenames) in os.walk('training_set/pad_images'):
-		label_name_list.extend(map(lambda x: 'training_set/labels/' + x.replace('.png', '.txt'), filenames))
 		image_name_list.extend(map(lambda x: 'training_set/pad_images/' + x, filenames))
+		label_value_name_list.extend(map(lambda x: 'training_set/labels/' + x.replace('.png', '.dat'), filenames))
+		label_shape_name_list.extend(map(lambda x: 'training_set/labels/' + x.replace('.png', '.sha'), filenames))
+		label_index_name_list.extend(map(lambda x: 'training_set/labels/' + x.replace('.png', '.ind'), filenames))
 		break
-	return image_name_list, label_name_list
+	return image_name_list, label_value_name_list, label_shape_name_list, label_index_name_list
 
 def create_inputs(input_channel, labels, dilations):
 	receptive_field = 0
@@ -63,19 +83,24 @@ def create_inputs(input_channel, labels, dilations):
 	preprocess_images(height, width_pad)
 	preprocess_labels(labels)
 
-	image_name_list, label_name_list = image_label_list()
+	image_name_list, label_value_name_list, label_shape_name_list, label_index_name_list = image_label_list()
 
 	seed = np.random.randint(1000)
 
 	image_name_queue = tf.train.string_input_producer(image_name_list, seed=seed)
-	label_name_queue = tf.train.string_input_producer(label_name_list, seed=seed)
+	label_value_name_queue = tf.train.string_input_producer(label_value_name_list, seed=seed)
+	label_shape_name_queue = tf.train.string_input_producer(label_shape_name_list, seed=seed)
+	label_index_name_queue = tf.train.string_input_producer(label_index_name_list, seed=seed)
 
 	image_reader = tf.WholeFileReader()
 	_, image_content = image_reader.read(image_name_queue)
 	image_tensor = tf.image.decode_png(image_content, channels=input_channel)
 
-	label_reader = tf.WholeFileReader()
-	_, label_tensor = label_reader.read(label_name_queue)
-	# label_tensor = tf.decode_raw(label_content, tf.uint8)
+	label_value_reader = tf.WholeFileReader()
+	_, label_value_tensor = label_value_reader.read(label_value_name_queue)
+	label_shape_reader = tf.WholeFileReader()
+	_, label_shape_tensor = label_shape_reader.read(label_shape_name_queue)
+	label_index_reader = tf.WholeFileReader()
+	_, label_index_tensor = label_index_reader.read(label_index_name_queue)
 
-	return image_tensor, label_tensor
+	return image_tensor, label_value_tensor, label_shape_tensor, label_index_tensor
