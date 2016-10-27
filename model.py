@@ -51,12 +51,12 @@ class RecogModel(object):
 				var['ctc']['cnn']['biases'].append(create_bias_variable('bias', [channel]))
 			# fully connected layer part
 			var['ctc']['full'] = dict()
-			var['ctc']['full']['weight'] = list()
+			var['ctc']['full']['weights'] = list()
 			var['ctc']['full']['biases'] = list()
 			for i, unit_num in enumerate(self.ctc_params['full']['units']):
 				if i == 0:
 					continue
-				var['ctc']['full']['weight'].append(create_variable('weight',
+				var['ctc']['full']['weights'].append(create_variable('weight',
 													[self.ctc_params['full']['units'][i - 1],
 													 self.ctc_params['full']['units'][i]]))
 				var['ctc']['full']['biases'].append(create_bias_variable('bias', [unit_num]))
@@ -86,7 +86,7 @@ class RecogModel(object):
 		image = 1.0 - image / 255.0
 		return image, label_value, label_shape, label_index
 
-	def _non_linear(subnet, input_tensor):
+	def _non_linear(self, subnet, input_tensor):
 		if self.ctc_params[subnet]['non-linear'] == 'relu':
 			return tf.nn.relu(input_tensor)
 		elif self.ctc_params[subnet]['non-linear'] == 'tanh':
@@ -119,13 +119,15 @@ class RecogModel(object):
 			tf.nn.bidirectional_dynamic_rnn(cell_fw=cells_fw,
 											cell_bw=cells_bw,
 											inputs=current_layer,
+											sequence_length=tf.expand_dims(length, 0),
 											dtype=tf.float32)
 			# fully connected part
 			current_layer = tf.reshape(current_layer, [self.batch_size * length, -1])
 			for layer_idx, unit_num in enumerate(self.ctc_params['full']['units']):
 				if layer_idx == 0:
 					continue
-				current_layer = tf.matmul(current_layer, self.ctc_params['full']['weight'][layer_idx - 1])
+				current_layer = tf.matmul(current_layer, self.variables['ctc']['full']['weights'][layer_idx - 1])
+				with_bias = tf.nn.bias_add(current_layer, self.variables['ctc']['full']['biases'][layer_idx - 1])
 				if layer_idx == len(self.ctc_params['full']['units']) - 1:
 					current_layer = with_bias
 				else:
@@ -142,7 +144,8 @@ class RecogModel(object):
 
 		sparse_label = tf.SparseTensor(label_index, label_value, label_shape)
 		loss = tf.nn.ctc_loss(inputs=output,
-							  labels=label,
+							  labels=sparse_label,
+							  sequence_length=tf.expand_dims(tf.shape(output)[1], 0),
 							  time_major=False)
 
 		reduced_loss = tf.reduce_mean(loss)
