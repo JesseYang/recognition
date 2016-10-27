@@ -124,6 +124,8 @@ def main():
 			summary, loss_value, _ = sess.run([summaries, loss, optim])
 			writer.add_summary(summary, step)
 
+			print step
+
 			if step % 100 == 0 and step > 0:
 				duration = time.time() - start_time
 				print('step {:d} - loss = {:.9f}, ({:.3f} sec/100 step)'.format(step, loss_value, duration))

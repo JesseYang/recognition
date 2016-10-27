@@ -26,7 +26,8 @@ class RecogModel(object):
 		self.seq2seq_params = seq2seq_params
 		if self.network_type == 'ctc':
 			self.ctc_params['cnn']['channels'].insert(0, self.input_channel)
-			self.ctc_params['full']['units'].insert(0, self.ctc_params['rnn']['units'][-1])
+			# the rnn is bi-directional, and the output size is as twice as the unit number in the json file
+			self.ctc_params['full']['units'].insert(0, self.ctc_params['rnn']['units'][-1] * 2)
 			self.ctc_params['full']['units'].append(self.klass + 1)
 		self.variables = self._create_variables()
 
@@ -116,7 +117,7 @@ class RecogModel(object):
 			cells_fw = tf.nn.rnn_cell.MultiRNNCell(cells_fw_list)
 			cells_bw = tf.nn.rnn_cell.MultiRNNCell(cells_bw_list)
 			current_layer = tf.reshape(current_layer, [self.batch_size, length, self.ctc_params['cnn']['channels'][-1]])
-			tf.nn.bidirectional_dynamic_rnn(cell_fw=cells_fw,
+			current_layer, _ = tf.nn.bidirectional_dynamic_rnn(cell_fw=cells_fw,
 											cell_bw=cells_bw,
 											inputs=current_layer,
 											sequence_length=tf.expand_dims(length, 0),
