@@ -26,7 +26,7 @@ class RecogModel(object):
 		self.seq2seq_params = seq2seq_params
 		if self.network_type == 'ctc':
 			self.ctc_params['cnn']['channels'].insert(0, self.input_channel)
-			# the rnn is bi-directional, and the output size is as twice as the unit number in the json file
+			# the rnn is bi-directional, and the output size is as twice as the unit number in the json fil``e
 			self.ctc_params['full']['units'].insert(0, self.ctc_params['rnn']['units'][-1] * 2)
 			self.ctc_params['full']['units'].append(self.klass + 1)
 		self.variables = self._create_variables()
@@ -154,10 +154,16 @@ class RecogModel(object):
 		return reduced_loss
 
 	def generate(self, image):
-		pass
-		# image, _ = self._preprocess(input_data=image,
-		# 							generate=True)
-		# output = self._create_network(image)
-		# output_image = tf.argmax(input=output,
-		# 						 dimension=3)
-		# return output_image
+		image, _, _, _ = self._preprocess(input_data=image,
+									generate=True)
+		output = self._create_network(image)
+
+		output = tf.reshape(output, [self.batch_size, -1, self.klass + 1])
+
+		_output = tf.transpose(output, perm=[1, 0, 2])
+
+		label_result = tf.nn.ctc_beam_search_decoder(inputs=_output,
+													 sequence_length=tf.expand_dims(tf.shape(output)[1], 0),
+													 beam_width=100)
+
+		return label_result

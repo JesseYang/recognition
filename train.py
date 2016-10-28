@@ -12,7 +12,10 @@ from model import RecogModel
 
 BATCH_SIZE = 1
 NUM_STEPS = 5000
-LEARNING_RATE = 0.1
+LEARNING_RATE = 0.001
+LR_DECAY_STEPS = 1000
+LR_DECAY_RATE = 0.5
+MOMENTUM = 0.9
 INPUT_CHANNEL = 1
 LOGDIR_ROOT = './logdir'
 STARTED_DATESTRING = "{0:%Y-%m-%dT%H-%M-%S}".format(datetime.now())
@@ -27,6 +30,12 @@ def get_arguments():
 						help='Number of training steps.')
 	parser.add_argument('--learning_rate', type=float, default=LEARNING_RATE,
 						help='Learning rate for training.')
+	parser.add_argument('--lr_decay_steps', type=float, default=LR_DECAY_STEPS,
+						help='Learning rate decay steps.')
+	parser.add_argument('--lr_decay_rate', type=float, default=LR_DECAY_RATE,
+						help='Learning rate decay rate.')
+	parser.add_argument('--momentum', type=float, default=MOMENTUM,
+						help='Momentum for training.')
 	parser.add_argument('--input_channel', type=str, default=INPUT_CHANNEL,
 						help='Number of input channel.')
 	parser.add_argument('--recog_params', type=str, default=RECOG_PARAMS,
@@ -98,9 +107,16 @@ def main():
 					seq2seq_params=recog_params['seq2seq_params'])
 
 	loss = net.loss(input_data)
-	optimizer = tf.train.AdamOptimizer(learning_rate=args.learning_rate)
+	global_step = tf.Variable(0)
+	learning_rate = tf.train.exponential_decay(learning_rate=args.learning_rate,
+											   global_step=global_step,
+											   decay_steps=args.lr_decay_steps,
+											   decay_rate=args.lr_decay_rate,
+											   staircase=True)
+	optimizer = tf.train.MomentumOptimizer(learning_rate=args.learning_rate,
+										   momentum=args.momentum)
 	trainable = tf.trainable_variables()
-	optim = optimizer.minimize(loss, var_list=trainable)
+	optim = optimizer.minimize(loss, var_list=trainable, global_step=global_step)
 
 	# set up logging for tensorboard
 	writer = tf.train.SummaryWriter(logdir)
@@ -116,7 +132,7 @@ def main():
 	qr.create_threads(sess, coord=coord, start=True)
 	threads = tf.train.start_queue_runners(sess=sess, coord=coord)
 
-	saver = tf.train.Saver(write_version=tf.train.SaverDef.V2)
+	saver = tf.train.Saver()
 	step_num = 10
 
 	try:
