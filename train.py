@@ -125,6 +125,7 @@ def main():
 			summary, loss_value, _ = sess.run([summaries, loss, optim])
 			writer.add_summary(summary, step)
 
+			print loss_value
 
 			if step % step_num == 0 and step > 0:
 				duration = time.time() - start_time
