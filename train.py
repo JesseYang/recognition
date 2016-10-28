@@ -12,7 +12,7 @@ from model import RecogModel
 
 BATCH_SIZE = 1
 NUM_STEPS = 5000
-LEARNING_RATE = 0.001
+LEARNING_RATE = 0.1
 INPUT_CHANNEL = 1
 LOGDIR_ROOT = './logdir'
 STARTED_DATESTRING = "{0:%Y-%m-%dT%H-%M-%S}".format(datetime.now())
@@ -128,7 +128,7 @@ def main():
 
 			if step % step_num == 0 and step > 0:
 				duration = time.time() - start_time
-				print('step {:d} - loss = {:.9f}, ({:.3f} sec/{:d} step)'.format(step, loss_value, step_num, duration))
+				print('step {:d} - loss = {:.9f}, ({:.3f} sec/{:d} step)'.format(step, loss_value, duration, step_num))
 				start_time = time.time()
 				save(saver, sess, logdir, step)
 				last_saved_step = step
