@@ -12,7 +12,7 @@ from model import RecogModel
 
 BATCH_SIZE = 1
 NUM_STEPS = 5000
-LEARNING_RATE = 0.0005
+LEARNING_RATE = 0.001
 INPUT_CHANNEL = 1
 LOGDIR_ROOT = './logdir'
 STARTED_DATESTRING = "{0:%Y-%m-%dT%H-%M-%S}".format(datetime.now())
@@ -124,9 +124,8 @@ def main():
 			summary, loss_value, _ = sess.run([summaries, loss, optim])
 			writer.add_summary(summary, step)
 
-			print step
 
-			if step % 100 == 0 and step > 0:
+			if step % 10 == 0 and step > 0:
 				duration = time.time() - start_time
 				print('step {:d} - loss = {:.9f}, ({:.3f} sec/100 step)'.format(step, loss_value, duration))
 				start_time = time.time()

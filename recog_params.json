@@ -5,17 +5,17 @@
 	"ctc_params": {
 		"cnn": {
 			"dilations": [1, 2, 4, 8, 1, 2, 4, 8, 1],
-			"channels": [64, 64, 128, 128, 256, 256, 512, 512, 1024],
+			"channels": [32, 32, 64, 64, 128, 128, 256, 256, 512],
 			"kernel_size": [3, 3, 3, 3, 3, 3, 3, 3, 3]
 		},
 		"rnn": {
-			"units": [200, 200, 200],
+			"units": [128],
 			"_comment": "can be simple or gru",
 			"cell_type": "gru"
 		},
 		"full": {
 			"_comment": "the output layer is not included, since the number of units in last layer should be the number of output classes plus 1",
-			"units": [200, 200, 200],
+			"units": [256],
 			"_comment": "can be tanh, relu, ...",
 			"non-linear": "relu"
 		}
