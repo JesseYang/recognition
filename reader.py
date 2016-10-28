@@ -32,6 +32,8 @@ def preprocess_images(height, width_pad):
 def preprocess_labels(labels):
 	for (dirpath, dirnames, filenames) in os.walk('training_set/labels'):
 		for filename in filenames:
+			if "txt" not in filename:
+				continue
 			value_list = []
 			label_str_file = open('training_set/labels/' + filename)
 			label_str = label_str_file.read()
