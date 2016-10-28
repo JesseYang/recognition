@@ -116,7 +116,7 @@ def main():
 	qr.create_threads(sess, coord=coord, start=True)
 	threads = tf.train.start_queue_runners(sess=sess, coord=coord)
 
-	saver = tf.train.Saver()
+	saver = tf.train.Saver(write_version=tf.train.SaverDef.V2)
 	step_num = 10
 
 	try:
