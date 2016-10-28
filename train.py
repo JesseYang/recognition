@@ -117,6 +117,7 @@ def main():
 	threads = tf.train.start_queue_runners(sess=sess, coord=coord)
 
 	saver = tf.train.Saver()
+	step_num = 10
 
 	try:
 		start_time = time.time()
@@ -125,9 +126,9 @@ def main():
 			writer.add_summary(summary, step)
 
 
-			if step % 10 == 0 and step > 0:
+			if step % step_num == 0 and step > 0:
 				duration = time.time() - start_time
-				print('step {:d} - loss = {:.9f}, ({:.3f} sec/100 step)'.format(step, loss_value, duration))
+				print('step {:d} - loss = {:.9f}, ({:.3f} sec/{:d} step)'.format(step, loss_value, step_num, duration))
 				start_time = time.time()
 				save(saver, sess, logdir, step)
 				last_saved_step = step
