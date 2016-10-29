@@ -7,6 +7,9 @@ import os
 import json
 
 def preprocess_images(height, width_pad):
+	for (dirpath, dirnames, filenames) in os.walk('training_set/pad_images'):
+		for filename in filenames:
+			os.remove('training_set/pad_images/' + filename)
 	for (dirpath, dirnames, filenames) in os.walk('training_set/images'):
 		for filename in filenames:
 			image = misc.imread('training_set/images/' + filename, mode='L')
@@ -75,13 +78,14 @@ def image_label_list():
 		break
 	return image_name_list, label_value_name_list, label_shape_name_list, label_index_name_list
 
-def create_inputs(input_channel, labels, dilations):
-	receptive_field = 0
-	for dilation in dilations:
-		receptive_field = receptive_field + dilation
-	width_pad = receptive_field
-	receptive_field = receptive_field * 2 + 1
-	height = receptive_field
+def create_inputs(input_channel, labels, dilations, kernel_height, kernel_width, min_height, min_width_pad):
+	receptive_field_height = 0
+	receptive_field_width = 0
+	for i, dilation in enumerate(dilations):
+		receptive_field_height = receptive_field_height + dilation * (kernel_height[i] - 1) / 2
+		receptive_field_width = receptive_field_width + dilation * (kernel_width[i] - 1) / 2
+	width_pad = receptive_field_width
+	height = receptive_field_height * 2 + 1
 	preprocess_images(height, width_pad)
 	preprocess_labels(labels)
 

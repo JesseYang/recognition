@@ -41,8 +41,8 @@ class RecogModel(object):
 			var['ctc']['cnn']['filters'] = list()
 			for i, dilation in enumerate(self.ctc_params['cnn']['dilations']):
 				var['ctc']['cnn']['filters'].append(create_variable('filter',
-													[self.ctc_params['cnn']['kernel_size'][i],
-													 self.ctc_params['cnn']['kernel_size'][i],
+													[self.ctc_params['cnn']['kernel_height'][i],
+													 self.ctc_params['cnn']['kernel_width'][i],
 													 self.ctc_params['cnn']['channels'][i],
 													 self.ctc_params['cnn']['channels'][i + 1]]))
 			var['ctc']['cnn']['biases'] = list()
@@ -106,8 +106,9 @@ class RecogModel(object):
 				with_bias = tf.nn.bias_add(conv, self.variables['ctc']['cnn']['biases'][layer_idx])
 				current_layer = tf.nn.relu(with_bias)
 			# rnn part
-			shape = current_layer.get_shape()
 			shape = tf.shape(current_layer)
+			# shape is [batch_size * height * width * channels]
+			height = shape[1]
 			length = shape[2]
 			cells_fw_list = []
 			cells_bw_list = []
@@ -116,7 +117,9 @@ class RecogModel(object):
 				cells_bw_list.append(tf.nn.rnn_cell.GRUCell(unit_num))
 			cells_fw = tf.nn.rnn_cell.MultiRNNCell(cells_fw_list)
 			cells_bw = tf.nn.rnn_cell.MultiRNNCell(cells_bw_list)
-			current_layer = tf.reshape(current_layer, [self.batch_size, length, self.ctc_params['cnn']['channels'][-1]])
+			# transpose from [batch_size * height * width * channels] to [batch_size * width * height * channels]
+			current_layer = tf.transpose(current_layer, perm=[0, 2, 1, 3])
+			current_layer = tf.reshape(current_layer, [self.batch_size, length, height * self.ctc_params['cnn']['channels'][-1]])
 			current_layer, _ = tf.nn.bidirectional_dynamic_rnn(cell_fw=cells_fw,
 											cell_bw=cells_bw,
 											inputs=current_layer,

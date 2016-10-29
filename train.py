@@ -12,9 +12,9 @@ from model import RecogModel
 
 BATCH_SIZE = 1
 NUM_STEPS = 5000
-LEARNING_RATE = 0.001
-LR_DECAY_STEPS = 1000
-LR_DECAY_RATE = 0.5
+LEARNING_RATE = 0.00001
+LR_DECAY_STEPS = 500
+LR_DECAY_RATE = 1.0
 MOMENTUM = 0.9
 INPUT_CHANNEL = 1
 LOGDIR_ROOT = './logdir'
@@ -93,7 +93,11 @@ def main():
 
 	image, label_value, label_shape, label_index = create_inputs(input_channel=args.input_channel,
 																 labels=recog_params['labels'],
-																 dilations=recog_params['ctc_params']['cnn']['dilations'])
+																 dilations=recog_params['ctc_params']['cnn']['dilations'],
+																 kernel_height=recog_params['ctc_params']['cnn']['kernel_height'],
+																 kernel_width=recog_params['ctc_params']['cnn']['kernel_width'],
+																 min_height=recog_params['min_height'],
+																 min_width_pad=recog_params['min_width_pad'])
 
 	queue = tf.FIFOQueue(256, ['uint8', 'uint8', 'uint8', 'uint8'])
 	enqueue = queue.enqueue([image, label_value, label_shape, label_index])
@@ -113,7 +117,7 @@ def main():
 											   decay_steps=args.lr_decay_steps,
 											   decay_rate=args.lr_decay_rate,
 											   staircase=True)
-	optimizer = tf.train.MomentumOptimizer(learning_rate=args.learning_rate,
+	optimizer = tf.train.MomentumOptimizer(learning_rate=learning_rate,
 										   momentum=args.momentum)
 	trainable = tf.trainable_variables()
 	optim = optimizer.minimize(loss, var_list=trainable, global_step=global_step)
