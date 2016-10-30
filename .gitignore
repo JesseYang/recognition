@@ -4,3 +4,5 @@ logdir
 *ckpt*
 *.png
 *.txt
+*.tar.gz
+LibriSpeech

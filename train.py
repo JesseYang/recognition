@@ -13,7 +13,7 @@ from model import RecogModel
 BATCH_SIZE = 1
 NUM_STEPS = 50000
 OPTIMIZER = 'momentum'
-LEARNING_RATE = 1e-6
+LEARNING_RATE = 1e-4
 LR_DECAY_STEPS = 500
 LR_DECAY_RATE = 1.0
 MOMENTUM = 0.9
@@ -22,6 +22,7 @@ LOGDIR_ROOT = './logdir'
 STARTED_DATESTRING = "{0:%Y-%m-%dT%H-%M-%S}".format(datetime.now())
 IS_OVERWRITTEN = 0
 RECOG_PARAMS = './recog_params.json'
+TRAINING_SET_DIR = 'training_set_speech'
 L2_REGULARIZATION_STRENGTH = 0
 
 def get_arguments():
@@ -44,6 +45,8 @@ def get_arguments():
 						help='Number of input channel.')
 	parser.add_argument('--recog_params', type=str, default=RECOG_PARAMS,
 						help='JSON file with the network parameters.')
+	parser.add_argument('--training_set_dir', type=str, default=TRAINING_SET_DIR,
+						help='The folder containint the training set data.')
 	parser.add_argument('--l2_regularization_strength', type=float,
 						default=L2_REGULARIZATION_STRENGTH,
 						help='Coefficient in the L2 regularization. '
@@ -116,7 +119,8 @@ def main():
 	logdir_root = args.logdir_root
 	logdir = get_default_logdir(logdir_root)
 
-	height, image, label_value, label_shape, label_index = create_inputs(input_channel=args.input_channel,
+	height, image, label_value, label_shape, label_index = create_inputs(training_set_dir=args.training_set_dir,
+																		 input_channel=args.input_channel,
 																		 labels=recog_params['labels'],
 																		 dilations=recog_params['ctc_params']['cnn']['dilations'],
 																		 kernel_height=recog_params['ctc_params']['cnn']['kernel_height'],

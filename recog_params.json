@@ -1,25 +1,28 @@
 {
 	"_comment": "'f' for fraction; 'c' for chinese characters; 't' for delete",
-	"labels": ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "f", "x", "+", "-", "*", "/", "=", "(", ")", ".", "c", "t"],
+	"_labels": ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "f", "x", "+", "-", "*", "/", "=", "(", ")", ".", "c", "t"],
+	"labels": ["'", " ", "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"],
 	"min_height": 60,
-	"min_width_pad": 20,
+	"min_width_pad": 0,
 	"_comment": "can be ctc or seq2seq",
 	"network_type": "ctc",
 	"ctc_params": {
 		"cnn": {
-			"dilations": [],
-			"channels": [],
-			"kernel_height": [],
-			"kernel_width":  []
+			"dilations": [1, 1],
+			"channels": [32, 32],
+			"stride_height": [2, 2],
+			"stride_width":  [2, 1],
+			"kernel_height": [41, 21],
+			"kernel_width":  [11, 11]
 		},
 		"rnn": {
-			"units": [128],
+			"units": [256, 256],
 			"_comment": "can be simple or gru",
 			"cell_type": "gru"
 		},
 		"full": {
 			"_comment": "the output layer is not included, since the number of units in last layer should be the number of output classes plus 1",
-			"units": [128],
+			"units": [],
 			"_comment": "can be tanh, relu, ...",
 			"non-linear": "relu"
 		}

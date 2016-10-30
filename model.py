@@ -40,6 +40,7 @@ class RecogModel(object):
 			receptive_field_height = receptive_field_height + dilation * (self.ctc_params['cnn']['kernel_height'][i] - 1) / 2
 		cnn_output_height = self.image_height - receptive_field_height * 2
 		cnn_output_channel = self.ctc_params['cnn']['channels'][-1] if len(self.ctc_params['cnn']['channels']) > 0 else 1
+		cnn_output_height = 21
 		self.rnn_input_size = cnn_output_height * cnn_output_channel
 
 	def _create_variables(self):
@@ -111,10 +112,19 @@ class RecogModel(object):
 		if self.network_type == 'ctc':
 			# cnn part
 			for layer_idx, dilation in enumerate(self.ctc_params['cnn']['dilations']):
-				conv = tf.nn.atrous_conv2d(value=current_layer,
-										   filters=self.variables['ctc']['cnn']['filters'][layer_idx],
-										   rate=dilation,
-										   padding='VALID')
+				if dilation == 1:
+					conv = tf.nn.conv2d(input=current_layer,
+										filter=self.variables['ctc']['cnn']['filters'][layer_idx],
+										strides=[1,
+												 self.ctc_params['cnn']['stride_height'][layer_idx],
+												 self.ctc_params['cnn']['stride_width'][layer_idx],
+												 1],
+										padding='VALID')
+				else:
+					conv = tf.nn.atrous_conv2d(value=current_layer,
+											   filters=self.variables['ctc']['cnn']['filters'][layer_idx],
+											   rate=dilation,
+											   padding='VALID')
 				with_bias = tf.nn.bias_add(conv, self.variables['ctc']['cnn']['biases'][layer_idx])
 				current_layer = tf.nn.relu(with_bias)
 			# rnn part
