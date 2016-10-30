@@ -1,3 +1,4 @@
+from __future__ import print_function
 import argparse
 import os
 import sys
@@ -9,16 +10,17 @@ import tensorflow as tf
 from reader import create_inputs
 from model import RecogModel
 
-
 BATCH_SIZE = 1
 NUM_STEPS = 50000
-LEARNING_RATE = 0.0005
+OPTIMIZER = 'momentum'
+LEARNING_RATE = 0.0001
 LR_DECAY_STEPS = 500
 LR_DECAY_RATE = 1.0
 MOMENTUM = 0.9
 INPUT_CHANNEL = 1
 LOGDIR_ROOT = './logdir'
 STARTED_DATESTRING = "{0:%Y-%m-%dT%H-%M-%S}".format(datetime.now())
+IS_OVERWRITTEN = True
 RECOG_PARAMS = './recog_params.json'
 L2_REGULARIZATION_STRENGTH = 0
 
@@ -28,6 +30,8 @@ def get_arguments():
 						help='How many image files to process at once.')
 	parser.add_argument('--num_steps', type=int, default=NUM_STEPS,
 						help='Number of training steps.')
+	parser.add_argument('--optimizer', type=str, default=OPTIMIZER,
+						help='The optimer used, can be "momentum" or "adam". ')
 	parser.add_argument('--learning_rate', type=float, default=LEARNING_RATE,
 						help='Learning rate for training.')
 	parser.add_argument('--lr_decay_steps', type=float, default=LR_DECAY_STEPS,
@@ -47,8 +51,11 @@ def get_arguments():
 	parser.add_argument('--logdir_root', type=str, default=LOGDIR_ROOT,
 						help='Root directory to place the logging '
 						'output and generated model. These are stored '
-						'under the dated subdirectory of --logdir_root. '
-						'Cannot use with --logdir.')
+						'under the dated subdirectory of --logdir_root. ')
+	parser.add_argument('--restore_from', type=str, default=None,
+						help='Directory in which to restore the model from. ')
+	parser.add_argument('--is_overwritten', type=bool, default=IS_OVERWRITTEN,
+						help='Whether overwritten the model when restored. ')
 	return parser.parse_args()
 
 def get_default_logdir(logdir_root):
@@ -57,6 +64,24 @@ def get_default_logdir(logdir_root):
 	logdir = os.path.join(logdir_root, 'train', STARTED_DATESTRING)
 	return logdir
 
+def load(saver, sess, restore_from):
+	print("Trying to restore saved checkpoints from {} ...".format(restore_from),
+		  end="")
+
+	ckpt = tf.train.get_checkpoint_state(restore_from)
+	if ckpt:
+		print("  Checkpoint found: {}".format(ckpt.model_checkpoint_path))
+		global_step = int(ckpt.model_checkpoint_path
+						  .split('/')[-1]
+						  .split('-')[-1])
+		print("  Global step was: {}".format(global_step))
+		print("  Restoring...", end="")
+		saver.restore(sess, ckpt.model_checkpoint_path)
+		print(" Done.")
+		return global_step
+	else:
+		print(" No checkpoint found.")
+		return None
 
 def check_params(recog_params):
 	if len(recog_params['dilations']) - len(recog_params['channels']) != 1:
@@ -68,16 +93,16 @@ def check_params(recog_params):
 	return True
 
 def save(saver, sess, logdir, step):
-    model_name = 'model.ckpt'
-    checkpoint_path = os.path.join(logdir, model_name)
-    print('Storing checkpoint to {} ...'.format(logdir))
-    sys.stdout.flush()
+	model_name = 'model.ckpt'
+	checkpoint_path = os.path.join(logdir, model_name)
+	print('Storing checkpoint to {} ...'.format(logdir))
+	sys.stdout.flush()
 
-    if not os.path.exists(logdir):
-        os.makedirs(logdir)
+	if not os.path.exists(logdir):
+		os.makedirs(logdir)
 
-    saver.save(sess, checkpoint_path, global_step=step)
-    print(' Done.')
+	saver.save(sess, checkpoint_path, global_step=step)
+	print(' Done.')
 
 def main():
 	args = get_arguments()
@@ -118,16 +143,18 @@ def main():
 											   decay_steps=args.lr_decay_steps,
 											   decay_rate=args.lr_decay_rate,
 											   staircase=True)
-	# optimizer = tf.train.MomentumOptimizer(learning_rate=learning_rate,
-	# 									   momentum=args.momentum)
-	optimizer = tf.train.AdamOptimizer()
+	optimizer_momentum = tf.train.MomentumOptimizer(learning_rate=learning_rate,
+										   momentum=args.momentum)
+	optimizer_adam = tf.train.AdamOptimizer()
 	trainable = tf.trainable_variables()
-	optim = optimizer.minimize(loss, var_list=trainable, global_step=global_step)
-
-	# set up logging for tensorboard
-	writer = tf.train.SummaryWriter(logdir)
-	writer.add_graph(tf.get_default_graph())
-	summaries = tf.merge_all_summaries()
+	if args.optimizer == 'momentum':
+		print("Use momentum SGD. ")
+		optim = optimizer_momentum.minimize(loss, var_list=trainable, global_step=global_step)
+	elif args.optimizer == 'adam':
+		print("Use Adam. ")
+		optim = optimizer_adam.minimize(loss, var_list=trainable, global_step=global_step)
+	else:
+		print('Unknown optimizer. ')
 
 	sess = tf.Session()
 	init = tf.initialize_all_variables()
@@ -138,16 +165,39 @@ def main():
 	qr.create_threads(sess, coord=coord, start=True)
 	threads = tf.train.start_queue_runners(sess=sess, coord=coord)
 
-	saver = tf.train.Saver()
+	# saver = tf.train.Saver(tf.all_variables())
+	saver = tf.train.Saver(trainable)
+
+	if args.restore_from != None:
+		try:
+			saved_global_step = load(saver, sess, args.restore_from)
+		except:
+			print("Something went wrong while restoring checkpoint. "
+				  "We will terminate training to avoid accidentally overwriting "
+				  "the previous model.")
+			raise
+			return
+		print(args.is_overwritten)
+		if args.is_overwritten == True:
+			logdir = args.restore_from
+		print(logdir)
+	else:
+		saved_global_step = -1
+
+	# set up logging for tensorboard
+	writer = tf.train.SummaryWriter(logdir)
+	writer.add_graph(tf.get_default_graph())
+	summaries = tf.merge_all_summaries()
+
 	step_num = 100
 
 	try:
 		start_time = time.time()
-		for step in range(args.num_steps):
+		for step in range(saved_global_step + 1, args.num_steps):
 			summary, loss_value, _ = sess.run([summaries, loss, optim])
 			writer.add_summary(summary, step)
 
-			print loss_value
+			print(loss_value)
 
 			if step % step_num == 0 and step > 0:
 				duration = time.time() - start_time
