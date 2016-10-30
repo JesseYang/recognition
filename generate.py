@@ -47,12 +47,16 @@ def main():
 	# if check_params(recog_params) == False:
 	#   return
 
+	input_image_data = misc.imread(args.image, mode='L')
+	print(input_image_data.shape)
+
 	net = RecogModel(input_channel=args.input_channel,
-					klass=len(recog_params['labels']),
-					batch_size=args.batch_size,
-					network_type=recog_params['network_type'],
-					ctc_params=recog_params['ctc_params'],
-					seq2seq_params=recog_params['seq2seq_params'])
+					 image_height=input_image_data.shape[0],
+					 klass=len(recog_params['labels']),
+					 batch_size=args.batch_size,
+					 network_type=recog_params['network_type'],
+					 ctc_params=recog_params['ctc_params'],
+					 seq2seq_params=recog_params['seq2seq_params'])
 
 	input_image = tf.placeholder(tf.uint8)
 	label_result = net.generate(input_image)
@@ -60,8 +64,6 @@ def main():
 	sess = tf.Session()
 	saver = tf.train.Saver()
 	saver.restore(sess, args.checkpoint)
-
-	input_image_data = misc.imread(args.image, mode='L')
 
 	label_result_data = sess.run(label_result, feed_dict={input_image: input_image_data})
 

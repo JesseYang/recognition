@@ -11,8 +11,8 @@ from model import RecogModel
 
 
 BATCH_SIZE = 1
-NUM_STEPS = 5000
-LEARNING_RATE = 0.00001
+NUM_STEPS = 50000
+LEARNING_RATE = 0.0005
 LR_DECAY_STEPS = 500
 LR_DECAY_RATE = 1.0
 MOMENTUM = 0.9
@@ -91,24 +91,25 @@ def main():
 	logdir_root = args.logdir_root
 	logdir = get_default_logdir(logdir_root)
 
-	image, label_value, label_shape, label_index = create_inputs(input_channel=args.input_channel,
-																 labels=recog_params['labels'],
-																 dilations=recog_params['ctc_params']['cnn']['dilations'],
-																 kernel_height=recog_params['ctc_params']['cnn']['kernel_height'],
-																 kernel_width=recog_params['ctc_params']['cnn']['kernel_width'],
-																 min_height=recog_params['min_height'],
-																 min_width_pad=recog_params['min_width_pad'])
+	height, image, label_value, label_shape, label_index = create_inputs(input_channel=args.input_channel,
+																		 labels=recog_params['labels'],
+																		 dilations=recog_params['ctc_params']['cnn']['dilations'],
+																		 kernel_height=recog_params['ctc_params']['cnn']['kernel_height'],
+																		 kernel_width=recog_params['ctc_params']['cnn']['kernel_width'],
+																		 min_height=recog_params['min_height'],
+																		 min_width_pad=recog_params['min_width_pad'])
 
 	queue = tf.FIFOQueue(256, ['uint8', 'uint8', 'uint8', 'uint8'])
 	enqueue = queue.enqueue([image, label_value, label_shape, label_index])
 	input_data = queue.dequeue()
 
 	net = RecogModel(input_channel=args.input_channel,
-					klass=len(recog_params['labels']),
-					batch_size=args.batch_size,
-					network_type=recog_params['network_type'],
-					ctc_params=recog_params['ctc_params'],
-					seq2seq_params=recog_params['seq2seq_params'])
+					 image_height=height,
+					 klass=len(recog_params['labels']),
+					 batch_size=args.batch_size,
+					 network_type=recog_params['network_type'],
+					 ctc_params=recog_params['ctc_params'],
+					 seq2seq_params=recog_params['seq2seq_params'])
 
 	loss = net.loss(input_data)
 	global_step = tf.Variable(0)
@@ -117,8 +118,9 @@ def main():
 											   decay_steps=args.lr_decay_steps,
 											   decay_rate=args.lr_decay_rate,
 											   staircase=True)
-	optimizer = tf.train.MomentumOptimizer(learning_rate=learning_rate,
-										   momentum=args.momentum)
+	# optimizer = tf.train.MomentumOptimizer(learning_rate=learning_rate,
+	# 									   momentum=args.momentum)
+	optimizer = tf.train.AdamOptimizer()
 	trainable = tf.trainable_variables()
 	optim = optimizer.minimize(loss, var_list=trainable, global_step=global_step)
 
@@ -137,7 +139,7 @@ def main():
 	threads = tf.train.start_queue_runners(sess=sess, coord=coord)
 
 	saver = tf.train.Saver()
-	step_num = 10
+	step_num = 100
 
 	try:
 		start_time = time.time()

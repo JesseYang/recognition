@@ -13,12 +13,14 @@ def create_bias_variable(name, shape):
 class RecogModel(object):
 	def __init__(self,
 				 input_channel,
+				 image_height,
 				 klass,
 				 batch_size,
 				 network_type,
 				 ctc_params,
 				 seq2seq_params):
 		self.input_channel = input_channel
+		self.image_height = image_height
 		self.klass = klass
 		self.batch_size = batch_size
 		self.network_type = network_type
@@ -26,10 +28,19 @@ class RecogModel(object):
 		self.seq2seq_params = seq2seq_params
 		if self.network_type == 'ctc':
 			self.ctc_params['cnn']['channels'].insert(0, self.input_channel)
-			# the rnn is bi-directional, and the output size is as twice as the unit number in the json fil``e
+			# the rnn is bi-directional, and the output size is as twice as the unit number in the json file
 			self.ctc_params['full']['units'].insert(0, self.ctc_params['rnn']['units'][-1] * 2)
 			self.ctc_params['full']['units'].append(self.klass + 1)
+			self._calculate_rnn_input_size()
 		self.variables = self._create_variables()
+
+	def _calculate_rnn_input_size(self):
+		receptive_field_height = 0
+		for i, dilation in enumerate(self.ctc_params['cnn']['dilations']):
+			receptive_field_height = receptive_field_height + dilation * (self.ctc_params['cnn']['kernel_height'][i] - 1) / 2
+		cnn_output_height = self.image_height - receptive_field_height * 2
+		cnn_output_channel = self.ctc_params['cnn']['channels'][-1] if len(self.ctc_params['cnn']['channels']) > 0 else 1
+		self.rnn_input_size = cnn_output_height * cnn_output_channel
 
 	def _create_variables(self):
 		var = dict()
@@ -60,7 +71,8 @@ class RecogModel(object):
 				var['ctc']['full']['weights'].append(create_variable('weight',
 													[self.ctc_params['full']['units'][i - 1],
 													 self.ctc_params['full']['units'][i]]))
-				var['ctc']['full']['biases'].append(create_bias_variable('bias', [unit_num]))
+				if i != len(self.ctc_params['full']['units']) - 1:
+					var['ctc']['full']['biases'].append(create_bias_variable('bias', [unit_num]))
 		return var
 
 	def _preprocess(self, input_data, generate=False):
@@ -108,7 +120,6 @@ class RecogModel(object):
 			# rnn part
 			shape = tf.shape(current_layer)
 			# shape is [batch_size * height * width * channels]
-			height = shape[1]
 			length = shape[2]
 			cells_fw_list = []
 			cells_bw_list = []
@@ -119,7 +130,9 @@ class RecogModel(object):
 			cells_bw = tf.nn.rnn_cell.MultiRNNCell(cells_bw_list)
 			# transpose from [batch_size * height * width * channels] to [batch_size * width * height * channels]
 			current_layer = tf.transpose(current_layer, perm=[0, 2, 1, 3])
-			current_layer = tf.reshape(current_layer, [self.batch_size, length, height * self.ctc_params['cnn']['channels'][-1]])
+			current_layer = tf.reshape(current_layer, [self.batch_size,
+													   length,
+													   self.rnn_input_size])
 			current_layer, _ = tf.nn.bidirectional_dynamic_rnn(cell_fw=cells_fw,
 											cell_bw=cells_bw,
 											inputs=current_layer,
@@ -131,10 +144,8 @@ class RecogModel(object):
 				if layer_idx == 0:
 					continue
 				current_layer = tf.matmul(current_layer, self.variables['ctc']['full']['weights'][layer_idx - 1])
-				with_bias = tf.nn.bias_add(current_layer, self.variables['ctc']['full']['biases'][layer_idx - 1])
-				if layer_idx == len(self.ctc_params['full']['units']) - 1:
-					current_layer = with_bias
-				else:
+				if layer_idx != len(self.ctc_params['full']['units']) - 1:
+					with_bias = tf.nn.bias_add(current_layer, self.variables['ctc']['full']['biases'][layer_idx - 1])
 					current_layer = self._non_linear('full', with_bias)
 			current_layer = tf.reshape(current_layer, [self.batch_size, length, -1])
 		return current_layer

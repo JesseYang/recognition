@@ -86,6 +86,8 @@ def create_inputs(input_channel, labels, dilations, kernel_height, kernel_width,
 		receptive_field_width = receptive_field_width + dilation * (kernel_width[i] - 1) / 2
 	width_pad = receptive_field_width
 	height = receptive_field_height * 2 + 1
+	width_pad = width_pad if width_pad > min_width_pad else min_width_pad
+	height = height if height > min_height else min_height
 	preprocess_images(height, width_pad)
 	preprocess_labels(labels)
 
@@ -114,4 +116,4 @@ def create_inputs(input_channel, labels, dilations, kernel_height, kernel_width,
 	_, label_index_content = label_index_reader.read(label_index_name_queue)
 	label_index_tensor = tf.decode_raw(label_index_content, tf.uint8)
 
-	return image_tensor, label_value_tensor, label_shape_tensor, label_index_tensor
+	return height, image_tensor, label_value_tensor, label_shape_tensor, label_index_tensor
