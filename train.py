@@ -13,14 +13,14 @@ from model import RecogModel
 BATCH_SIZE = 1
 NUM_STEPS = 50000
 OPTIMIZER = 'momentum'
-LEARNING_RATE = 0.0001
+LEARNING_RATE = 1e-6
 LR_DECAY_STEPS = 500
 LR_DECAY_RATE = 1.0
 MOMENTUM = 0.9
 INPUT_CHANNEL = 1
 LOGDIR_ROOT = './logdir'
 STARTED_DATESTRING = "{0:%Y-%m-%dT%H-%M-%S}".format(datetime.now())
-IS_OVERWRITTEN = True
+IS_OVERWRITTEN = 0
 RECOG_PARAMS = './recog_params.json'
 L2_REGULARIZATION_STRENGTH = 0
 
@@ -54,7 +54,7 @@ def get_arguments():
 						'under the dated subdirectory of --logdir_root. ')
 	parser.add_argument('--restore_from', type=str, default=None,
 						help='Directory in which to restore the model from. ')
-	parser.add_argument('--is_overwritten', type=bool, default=IS_OVERWRITTEN,
+	parser.add_argument('--is_overwritten', type=int, default=IS_OVERWRITTEN,
 						help='Whether overwritten the model when restored. ')
 	return parser.parse_args()
 
@@ -177,10 +177,8 @@ def main():
 				  "the previous model.")
 			raise
 			return
-		print(args.is_overwritten)
-		if args.is_overwritten == True:
+		if args.is_overwritten == 1:
 			logdir = args.restore_from
-		print(logdir)
 	else:
 		saved_global_step = -1
 
